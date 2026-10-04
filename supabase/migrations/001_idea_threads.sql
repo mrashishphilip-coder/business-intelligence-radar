@@ -33,6 +33,7 @@ create table if not exists source_episodes (
 
 create table if not exists thread_observations (
   id uuid primary key default gen_random_uuid(),
+  observation_key text not null unique,
   thread_id uuid not null references idea_threads(id) on delete cascade,
   observed_at timestamptz not null default now(),
   claim text not null,
@@ -126,3 +127,36 @@ alter table idea_threads enable row level security;
 alter table source_episodes enable row level security;
 alter table thread_observations enable row level security;
 alter table feedback_events enable row level security;
+
+
+create or replace function refresh_thread_counters()
+returns trigger
+language plpgsql
+as $$
+begin
+  update idea_threads t
+  set
+    observation_count = x.total_count,
+    supporting_count = x.supporting_count,
+    challenging_count = x.challenging_count,
+    last_seen_at = greatest(t.last_seen_at, x.last_observed_at)
+  from (
+    select
+      thread_id,
+      count(*)::int as total_count,
+      count(*) filter (where stance = 'supports')::int as supporting_count,
+      count(*) filter (where stance = 'challenges')::int as challenging_count,
+      max(observed_at) as last_observed_at
+    from thread_observations
+    where thread_id = coalesce(new.thread_id, old.thread_id)
+    group by thread_id
+  ) x
+  where t.id = x.thread_id;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists thread_observation_counter_trigger on thread_observations;
+create trigger thread_observation_counter_trigger
+after insert or update or delete on thread_observations
+for each row execute function refresh_thread_counters();
