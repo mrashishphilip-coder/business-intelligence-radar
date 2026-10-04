@@ -1,70 +1,38 @@
 const FEEDS=[
- {name:"Acquired",url:"https://acquired.libsyn.com/rss",weight:1.0},
- {name:"Lenny's Podcast",url:"https://api.substack.com/feed/podcast/10845.rss",weight:1.0},
- {name:"The a16z Show",url:"https://feeds.simplecast.com/JGE3yC0V",weight:0.96},
- {name:"Invest Like the Best",url:"https://investlikethebest.libsyn.com/rss",weight:0.94}
+{name:"Acquired",url:"https://acquired.libsyn.com/rss",weight:1},
+{name:"Lenny's Podcast",url:"https://api.substack.com/feed/podcast/10845.rss",weight:1},
+{name:"The a16z Show",url:"https://feeds.simplecast.com/JGE3yC0V",weight:.96},
+{name:"Invest Like the Best",url:"https://investlikethebest.libsyn.com/rss",weight:.94}
 ];
-
 const TOPICS=[
- {name:"AI Products",terms:[" ai ","agent","llm","model","software","developer","coding","automation","workflow","product"]},
- {name:"Business Strategy",terms:["strategy","moat","business model","market","distribution","company","growth","pricing","platform"]},
- {name:"Investing",terms:["invest","capital","valuation","portfolio","returns","market","fund","equity"]},
- {name:"Fintech",terms:["fintech","lending","credit","bank","payments","wealth","financial","insurance"]},
- {name:"Operators",terms:["ceo","founder","operator","leadership","team","organization","execution"]}
+{name:"AI Products",terms:[" ai ","agent","llm","model","software","developer","coding","automation","workflow","product"]},
+{name:"Business Strategy",terms:["strategy","moat","business model","market","distribution","company","growth","pricing","platform"]},
+{name:"Investing",terms:["invest","capital","valuation","portfolio","returns","market","fund","equity"]},
+{name:"Fintech",terms:["fintech","lending","credit","bank","payments","wealth","financial","insurance"]},
+{name:"Operators",terms:["ceo","founder","operator","leadership","team","organization","execution"]}
 ];
-
-function decode(s=""){return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#8217;/g,"’").replace(/&#8211;/g,"–");}
-function text(s=""){return decode(s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();}
-function tag(block,names){for(const n of names){const m=block.match(new RegExp("<"+n+"(?:\\s[^>]*)?>([\\s\\S]*?)<\\/"+n+">","i"));if(m)return text(m[1]);}return "";}
-function attr(block,tagName,attrName){const m=block.match(new RegExp("<"+tagName+"[^>]*"+attrName+"=[\"']([^\"']+)[\"'][^>]*>","i"));return m?decode(m[1]):"";}
-function parseFeed(xml,source,sourceWeight){
- const chunks=[...(xml.match(/<item[\s\S]*?<\/item>/gi)||[]),...(xml.match(/<entry[\s\S]*?<\/entry>/gi)||[])];
- return chunks.slice(0,14).map((b,i)=>{
-   const title=tag(b,["title"]);
-   const description=tag(b,["content:encoded","description","summary","content"]);
-   const link=tag(b,["link"])||attr(b,"link","href")||tag(b,["guid"]);
-   const dateRaw=tag(b,["pubDate","published","updated"]);
-   const audio=attr(b,"enclosure","url");
-   return {id:source+"-"+i+"-"+title.slice(0,40),source,title,description,link,audio,publishedAt:dateRaw?new Date(dateRaw).toISOString():null,sourceWeight};
- }).filter(x=>x.title);
-}
-function daysOld(d){if(!d)return 30;return Math.max(0,(Date.now()-new Date(d).getTime())/86400000)}
-function category(ep){const hay=(" "+ep.title+" "+ep.description+" ").toLowerCase();let best={name:"Business",n:0};for(const t of TOPICS){const n=t.terms.reduce((a,x)=>a+(hay.includes(x)?1:0),0);if(n>best.n)best={name:t.name,n};}return best.name}
-function score(ep){
- const hay=(" "+ep.title+" "+ep.description+" ").toLowerCase();
- const interest=["ai","agent","strategy","business model","moat","pricing","capital","fintech","lending","credit","operator","product","workflow","distribution","market","founder"];
- const rel=interest.reduce((a,x)=>a+(hay.includes(x)?0.36:0),5.2);
- const rec=Math.max(0,2.1-daysOld(ep.publishedAt)/7);
- const depth=Math.min(1.4,ep.description.length/1200);
- return Math.min(9.9,rel+rec+depth+(ep.sourceWeight-.9)*3);
-}
-function sentenceSummary(s){const cleaned=text(s);const parts=cleaned.split(/(?<=[.!?])\s+/).filter(x=>x.length>45);return (parts.slice(0,2).join(" ")||cleaned).slice(0,420)}
-function words(s){return new Set((s.toLowerCase().match(/[a-z0-9]+/g)||[]).filter(x=>x.length>3))}
-function sim(a,b){const A=words(a),B=words(b);if(!A.size||!B.size)return 0;let i=0;for(const x of A)if(B.has(x))i++;return i/Math.min(A.size,B.size)}
-function buildIdeas(episodes){
- const sorted=episodes.map(e=>({...e,category:category(e),relevance:score(e)})).sort((a,b)=>b.relevance-a.relevance);
- const kept=[];let suppressed=0;
- for(const e of sorted){if(kept.some(k=>sim(k.title+" "+k.description,e.title+" "+e.description)>.62)){suppressed++;continue;} kept.push(e); if(kept.length>=6)break;}
- return {ideas:kept.map((e,i)=>{
-   const age=daysOld(e.publishedAt);
-   const novelty=Math.min(9.6,6.3+Math.max(0,2.1-age/14)+(e.title.length>55?.5:0));
-   const evidence=Math.min(9.2,6.2+Math.min(2.1,e.description.length/600)+(e.sourceWeight-.9)*4);
-   const confidence=Math.min(9.1,(novelty+evidence)/2-.25);
-   return {rank:i+1,title:e.title,category:e.category,why:sentenceSummary(e.description),source:e.source,link:e.link,audio:e.audio,publishedAt:e.publishedAt,scores:{novelty:+novelty.toFixed(1),evidence:+evidence.toFixed(1),confidence:+confidence.toFixed(1),relevance:+e.relevance.toFixed(1)}};
- }),suppressed};
-}
-async function fetchFeed(f){
- const r=await fetch(f.url,{headers:{"User-Agent":"Business-Intelligence-Radar/1.0"},signal:AbortSignal.timeout(9000)});
- if(!r.ok)throw new Error(f.name+" "+r.status);return parseFeed(await r.text(),f.name,f.weight);
-}
-module.exports=async function handler(req,res){
- try{
-   const settled=await Promise.allSettled(FEEDS.map(fetchFeed));
-   const episodes=settled.flatMap(x=>x.status==="fulfilled"?x.value:[]);
-   const failures=settled.map((x,i)=>x.status==="rejected"?FEEDS[i].name:null).filter(Boolean);
-   const {ideas,suppressed}=buildIdeas(episodes);
-   const sources=FEEDS.map(f=>({name:f.name,ok:!failures.includes(f.name),episodes:episodes.filter(e=>e.source===f.name).length}));
-   res.setHeader("Cache-Control","s-maxage=1800, stale-while-revalidate=86400");
-   res.status(200).json({generatedAt:new Date().toISOString(),mode:"live-rss",episodesScanned:episodes.length,ideasExtracted:episodes.length,cleared:ideas.length,suppressed,ideas,sources,failures});
- }catch(err){res.status(500).json({error:"Radar refresh failed",detail:String(err&&err.message||err)});}
-}
+function decode(s=""){return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#8217;/g,"’").replace(/&#8211;/g,"–")}
+function text(s=""){return decode(s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim()}
+function tag(b,names){for(const n of names){const m=b.match(new RegExp("<"+n+"(?:\\s[^>]*)?>([\\s\\S]*?)<\\/"+n+">","i"));if(m)return text(m[1])}return ""}
+function attrTag(t,n){const m=t.match(new RegExp(n+"=[\"']([^\"']+)[\"']","i"));return m?decode(m[1]):""}
+function attr(b,t,n){const m=b.match(new RegExp("<"+t+"[^>]*"+n+"=[\"']([^\"']+)[\"'][^>]*>","i"));return m?decode(m[1]):""}
+function txTags(b){return(b.match(/<podcast:transcript\b[^>]*\/?\s*>/gi)||[]).map(t=>({url:attrTag(t,"url"),type:attrTag(t,"type"),language:attrTag(t,"language")})).filter(x=>x.url)}
+function parseFeed(xml,source,w){const items=[...(xml.match(/<item[\s\S]*?<\/item>/gi)||[]),...(xml.match(/<entry[\s\S]*?<\/entry>/gi)||[])];return items.slice(0,14).map((b,i)=>{const title=tag(b,["title"]),description=tag(b,["content:encoded","description","summary","content"]),link=tag(b,["link"])||attr(b,"link","href")||tag(b,["guid"]),d=tag(b,["pubDate","published","updated"]);return{id:(source+"-"+i+"-"+title.slice(0,48)).replace(/[^a-z0-9-]/gi,"_"),source,title,description,link,audio:attr(b,"enclosure","url"),publishedAt:d?new Date(d).toISOString():null,sourceWeight:w,transcripts:txTags(b)}}).filter(x=>x.title)}
+function daysOld(d){return d?Math.max(0,(Date.now()-new Date(d).getTime())/864e5):30}
+function category(e){const h=(" "+(e.title||"")+" "+(e.description||"")+" ").toLowerCase();let best={name:"Business",n:0};for(const t of TOPICS){const n=t.terms.reduce((a,x)=>a+(h.includes(x)?1:0),0);if(n>best.n)best={name:t.name,n}}return best.name}
+function score(e){const h=(" "+e.title+" "+e.description+" ").toLowerCase(),keys=["ai","agent","strategy","business model","moat","pricing","capital","fintech","lending","credit","operator","product","workflow","distribution","market","founder"];return Math.min(9.9,keys.reduce((a,x)=>a+(h.includes(x)?.36:0),5.2)+Math.max(0,2.1-daysOld(e.publishedAt)/7)+Math.min(1.4,e.description.length/1200)+(e.sourceWeight-.9)*3)}
+function words(s){return new Set((String(s).toLowerCase().match(/[a-z0-9]+/g)||[]).filter(x=>x.length>3))}
+function sim(a,b){const A=words(a),B=words(b);if(!A.size||!B.size)return 0;let n=0;for(const x of A)if(B.has(x))n++;return n/Math.min(A.size,B.size)}
+function summary(s){const c=text(s),p=c.split(/(?<=[.!?])\s+/).filter(x=>x.length>45);return(p.slice(0,2).join(" ")||c).slice(0,480)}
+async function fetchFeed(f){const r=await fetch(f.url,{headers:{"User-Agent":"Business-Intelligence-Radar/2.0"},signal:AbortSignal.timeout(9e3)});if(!r.ok)throw Error(f.name+" "+r.status);return parseFeed(await r.text(),f.name,f.weight)}
+function cleanTx(raw,type=""){if(type.includes("json")){try{const j=JSON.parse(raw),a=Array.isArray(j)?j:(j.segments||j.items||j.transcript||[]);if(Array.isArray(a))return a.map(x=>typeof x==="string"?x:(x.text||x.body||x.content||"")).join(" ");if(typeof j.text==="string")return j.text}catch{}}return raw.replace(/^WEBVTT.*$/gmi,"").replace(/^\d+\s*$/gm,"").replace(/\d{1,2}:\d{2}(?::\d{2})?[.,]\d{3}\s*-->\s*\d{1,2}:\d{2}(?::\d{2})?[.,]\d{3}.*$/gm,"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim()}
+async function enrich(e){for(const t of e.transcripts.slice(0,2)){try{const r=await fetch(t.url,{headers:{"User-Agent":"Business-Intelligence-Radar/2.0"},signal:AbortSignal.timeout(8500)});if(r.ok){const body=cleanTx(await r.text(),t.type||r.headers.get("content-type")||"");if(body.length>600)return{...e,content:body.slice(0,24e3),contentType:"transcript",transcriptUrl:t.url}}}catch{}}return{...e,content:(e.description||"").slice(0,12e3),contentType:"show-notes",transcriptUrl:null}}
+function parseJSON(raw){const s=String(raw||"").replace(/^```(?:json)?/i,"").replace(/```$/,"").trim(),a=s.indexOf("{"),b=s.lastIndexOf("}");if(a<0||b<a)throw Error("No JSON");return JSON.parse(s.slice(a,b+1))}
+async function aiClaims(eps){const{generateText}=await import("ai");const input=eps.map(e=>({episodeId:e.id,source:e.source,title:e.title,publishedAt:e.publishedAt,contentType:e.contentType,content:e.content}));const prompt='Extract atomic decision-useful business ideas. Return ONLY strict JSON {"claims":[{"episodeId":"...","claim":"specific falsifiable idea","evidence":"brief source evidence","category":"AI Products|Business Strategy|Investing|Fintech|Operators|Other","stance":"supports|challenges|neutral","specificity":1-10,"novelty":1-10}]}. Prefer mechanisms, numbers, business-model implications, operating lessons and disagreements. Avoid generic summaries/motivation/promotion. Max 4 claims per episode. Be conservative with show notes; never invent evidence. INPUT: '+JSON.stringify(input);const r=await generateText({model:process.env.RADAR_EXTRACT_MODEL||"openai/gpt-5.6-luna",prompt});return parseJSON(r.text).claims||[]}
+function heuristicClaims(eps){return eps.map(e=>({episodeId:e.id,claim:e.title,evidence:summary(e.description),category:category(e),stance:"neutral",specificity:6,novelty:Math.min(9,6+Math.max(0,2-daysOld(e.publishedAt)/10))}))}
+function cluster(claims){const out=[];for(const c of claims){let best=null,bs=0;for(const cl of out){const s=sim(cl.seed.claim,c.claim);if(s>bs){bs=s;best=cl}}if(best&&bs>.43)best.claims.push(c);else out.push({seed:c,claims:[c]})}return out.sort((a,b)=>new Set(b.claims.map(x=>x.episodeId)).size-new Set(a.claims.map(x=>x.episodeId)).size||b.claims.length-a.claims.length).slice(0,8)}
+function conflict(cl){return cl.claims.some(x=>x.stance==="supports")&&cl.claims.some(x=>x.stance==="challenges")}
+async function aiSynthesis(cls,eps){const{generateText}=await import("ai"),by=Object.fromEntries(eps.map(e=>[e.id,e])),data=cls.map((cl,i)=>({clusterId:"c"+(i+1),claims:cl.claims.map(c=>({...c,source:by[c.episodeId]?.source,title:by[c.episodeId]?.title,contentType:by[c.episodeId]?.contentType}))}));const prompt='Synthesize claim clusters ABOVE the level of a single transcript. Return ONLY strict JSON {"ideas":[{"clusterId":"c1","title":"synthesized thesis","why":"2-3 sentences on what is new and why it matters","consensus":"what sources agree on","disagreement":"material disagreement/uncertainty or empty string","category":"...","scores":{"novelty":1-10,"evidence":1-10,"confidence":1-10,"relevance":1-10},"deepDive":true}]}. Penalize show-note-only evidence. Prefer cross-source corroboration, mechanisms, counterintuitive implications and hard evidence. Output 3-6 only; never force a quota. CLUSTERS: '+JSON.stringify(data);const r=await generateText({model:process.env.RADAR_SYNTH_MODEL||"openai/gpt-5.6-terra",prompt});return parseJSON(r.text).ideas||[]}
+function fallback(cls,eps){const by=Object.fromEntries(eps.map(e=>[e.id,e]));return cls.slice(0,6).map((cl,i)=>{const src=[...new Set(cl.claims.map(c=>by[c.episodeId]?.source).filter(Boolean))],ep=[...new Set(cl.claims.map(c=>c.episodeId))].map(id=>by[id]).filter(Boolean),t=cl.seed,n=Math.min(9.3,+(6.4+(src.length-1)*.7+(t.novelty||6)*.18).toFixed(1)),ev=Math.min(9,+(6+src.length*.45+ep.filter(e=>e.contentType==="transcript").length*.55).toFixed(1));return{clusterId:"c"+(i+1),title:t.claim,why:t.evidence||summary(ep[0]?.description||""),consensus:src.length>1?"Multiple sources touch the same underlying theme.":"Single-source signal; treat as a lead rather than consensus.",disagreement:conflict(cl)?"The source claims contain both supporting and challenging stances.":"",category:t.category||category(ep[0]||{}),scores:{novelty:n,evidence:ev,confidence:+Math.min(8.8,(n+ev)/2-.4).toFixed(1),relevance:+Math.min(9.6,ep.reduce((a,e)=>Math.max(a,score(e)),6.5)).toFixed(1)},deepDive:src.length>1||ev>=7.5}})}
+function attach(ideas,cls,eps){const by=Object.fromEntries(eps.map(e=>[e.id,e])),bc=Object.fromEntries(cls.map((c,i)=>["c"+(i+1),c]));return ideas.map((x,i)=>{const cl=bc[x.clusterId]||cls[i]||{claims:[]},src=[];for(const c of cl.claims){const e=by[c.episodeId];if(e&&!src.some(s=>s.id===e.id))src.push({id:e.id,source:e.source,title:e.title,link:e.link,publishedAt:e.publishedAt,contentType:e.contentType,transcriptUrl:e.transcriptUrl})}return{...x,rank:i+1,sourceCount:src.length,sources:src,threadKey:(x.category+"|"+x.title.toLowerCase().replace(/[^a-z0-9]+/g," ").split(" ").filter(w=>w.length>3).slice(0,6).join("-")).slice(0,120)}})}
+module.exports=async function(req,res){try{const settled=await Promise.allSettled(FEEDS.map(fetchFeed)),all=settled.flatMap(x=>x.status==="fulfilled"?x.value:[]),failures=settled.map((x,i)=>x.status==="rejected"?FEEDS[i].name:null).filter(Boolean),cand=all.map(e=>({...e,relevance:score(e)})).sort((a,b)=>b.relevance-a.relevance).slice(0,10),eps=await Promise.all(cand.map(enrich)),tcount=eps.filter(e=>e.contentType==="transcript").length;let claims,mode="heuristic";try{claims=await aiClaims(eps);mode=tcount?"ai-transcript":"ai-show-notes"}catch{claims=heuristicClaims(eps)}const cls=cluster(claims);let syn;if(mode.startsWith("ai")){try{syn=await aiSynthesis(cls,eps)}catch{mode+="-extract-only";syn=fallback(cls,eps)}}else syn=fallback(cls,eps);const ideas=attach(syn,cls,eps).filter(x=>x.scores&&x.scores.relevance>=6.2).slice(0,6);res.setHeader("Cache-Control","s-maxage=1800, stale-while-revalidate=86400");res.status(200).json({generatedAt:new Date().toISOString(),mode,episodesScanned:all.length,candidatesAnalyzed:eps.length,transcriptCoverage:{episodes:tcount,total:eps.length,percent:eps.length?Math.round(tcount/eps.length*100):0},claimsExtracted:claims.length,clusters:cls.length,cleared:ideas.length,suppressed:Math.max(0,claims.length-cls.length),ideas,sources:FEEDS.map(f=>({name:f.name,ok:!failures.includes(f.name),episodes:all.filter(e=>e.source===f.name).length})),failures,memoryMode:"browser-local"})}catch(err){res.status(500).json({error:"Radar refresh failed",detail:String(err&&err.message||err)})}};
