@@ -42,3 +42,7 @@ The next intelligence layer will add:
 
 ## Product principle
 Podcasts are raw research material, not the unit of output. The unit of output is the **idea**.
+
+
+## Persistence
+Idea Threads are persisted through a secured Supabase Edge Function backed by Postgres + pgvector. Supabase Edge AI generates native 384-dimensional gte-small embeddings for semantic thread matching. Browser-local memory remains a fallback only.
