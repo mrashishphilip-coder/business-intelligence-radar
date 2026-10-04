@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Business Intelligence Radar</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand">Business Intelligence Radar</div>
+  <div class="subbrand">Signal over volume.</div>
+  <div class="nav">
+    <button class="active" data-view="today">◉ Today</button>
+    <button data-view="threads">↗ Idea Threads</button>
+    <button data-view="deepdive">⌕ Deep Dive</button>
+    <button data-view="weekly">▦ Weekly Review</button>
+    <button data-view="sources">◫ Sources</button>
+    <button data-view="preferences">⚙ Preferences</button>
+  </div>
+  <div class="footer">Daily at 8:00 AM IST<br/>Only insights that clear the quality bar are surfaced.</div>
+</aside>
+<main class="main"><div id="views"></div></main>
+</div>
+<script src="app.js"></script>
+<script src="pilot.js"></script>
+</body>
+</html>
