@@ -277,27 +277,27 @@ A source or model failure should not make the product unusable.
 
 ---
 
+## Seven-day pilot guardrails
+
+Before the first dogfooding week, three product changes were added:
+
+1. **Thesis-first Idea Threads** — extraction and synthesis prompts now explicitly reject episode titles, guest names and promotional headlines as canonical thread names. Legacy episode-style threads are suppressed from the pilot UI.
+2. **What changed today?** — recurring threads now show the score/evidence delta versus the prior observation instead of only listing history.
+3. **Reasoned feedback** — “Not for me” asks whether the issue was Already knew this, Repetitive, Not relevant, Weak evidence or Too generic. Deep Dive opens are also captured as pilot feedback.
+
+For the pilot, feedback reasons are retained in the browser so the one-week review can distinguish relevance, novelty and evidence problems.
+
+---
+
 ## Current product gaps
 
-The next meaningful improvements are:
+The next meaningful improvements after the pilot are:
 
-1. **Better canonical thread naming**  
-   Thread titles should always represent synthesized theses, never raw episode titles.
-
-2. **Broader source discovery**  
-   Move beyond a fixed podcast list.
-
-3. **Higher transcript coverage**  
-   Add additional transcript sources or audio transcription.
-
-4. **Stronger personalization**  
-   Make Novelty increasingly mean “new to this user”.
-
-5. **Better thread evolution logic**  
-   Explicit merge / split / confidence-change handling.
-
-6. **Weekly belief-change engine**  
-   Automatically identify the most important shifts in the user's mental model.
+1. **Broader source discovery** — move beyond a fixed podcast list.
+2. **Higher transcript coverage** — add additional transcript sources or audio transcription.
+3. **Stronger personalization** — make Novelty increasingly mean “new to this user”.
+4. **Better thread evolution logic** — explicit merge / split operations and stronger semantic matching.
+5. **Weekly belief-change engine** — automatically identify the most important shifts in the user's mental model.
 
 ---
 
