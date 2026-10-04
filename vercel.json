@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/", "destination": "/pilot.html" }
+  ],
   "crons": [
     { "path": "/api/radar", "schedule": "25 2 * * *" }
   ]
