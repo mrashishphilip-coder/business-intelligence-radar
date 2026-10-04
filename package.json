@@ -1,0 +1,8 @@
+{
+  "name": "business-intelligence-radar",
+  "version": "0.2.0",
+  "private": true,
+  "dependencies": {
+    "ai": "^6.0.34"
+  }
+}
